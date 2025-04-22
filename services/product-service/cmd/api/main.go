@@ -16,10 +16,28 @@ import (
 	"syscall"
 	"time"
 
+	_ "microservice/docs" // This is important for swagger to find the docs
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
+// @title Product Service API
+// @version 1.0
+// @description This is the product service API for the microservice architecture
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.example.com/support
+// @contact.email support@example.com
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /api
+// @schemes http
 func main() {
 	// Load configuration with multiple possible .env files
 	cfg, err := config.LoadConfig("services/product-service")
@@ -38,8 +56,8 @@ func main() {
 	lg := logger.GetDefaultLogger()
 
 	productRepo := postgres.NewProductRepository(dbpool)
-	productService := application.NewProductService(productRepo, lg)
-	productHandler := api.NewProductHandler(productService, validator.New())
+	productService := application.NewProductService(productRepo)
+	productHandler := api.NewProductHandler(productService, validator.New(), lg)
 
 	runSrever(cfg, productHandler, lg)
 }
@@ -56,12 +74,17 @@ func runSrever(cfg *config.Config, productHandler *api.ProductHandler, logger lo
 	r.Use(middleware.CleanPath)
 	r.Use(middleware.Compress(5))
 	r.Use(api.CORS(cfg))
-	r.Use(api.ContentTypeJson)
+
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"), // The URL pointing to API definition
+	))
 
 	r.Route("/api", func(r chi.Router) {
+		r.Use(api.ContentTypeJson)
 		productHandler.RegisterRoutes(r)
 	})
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		api.RespondWithJSON(w, http.StatusOK, map[string]string{
 			"status":  "ok",
 			"service": "product-service",

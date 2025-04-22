@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"microservice/pkg/logger"
 	"microservice/services/product-service/internal/domain"
 	"microservice/services/product-service/internal/infrastructure/validator"
 	"microservice/services/product-service/internal/interfaces"
@@ -16,12 +17,14 @@ import (
 type ProductHandler struct {
 	service   interfaces.Service
 	validator *validator.Validator
+	logger    logger.Logger
 }
 
-func NewProductHandler(service interfaces.Service, validator *validator.Validator) *ProductHandler {
+func NewProductHandler(service interfaces.Service, validator *validator.Validator, logger logger.Logger) *ProductHandler {
 	return &ProductHandler{
 		service:   service,
 		validator: validator,
+		logger:    logger,
 	}
 }
 
@@ -37,21 +40,45 @@ func (h *ProductHandler) RegisterRoutes(r chi.Router) {
 	})
 }
 
+// ListProducts godoc
+// @Summary List all products
+// @Description List all products
+// @Tags products
+// @Accept json
+// @Produce json
+// @Param page query int false "Page number" default(1)
+// @Param perPage query int false "Items per page" default(10)
+// @Success 200 {object} api.PaginatedResponse{items=[]domain.Product} "Success"
+// @Failure 500 {object} api.APIResponse{errors=string} "Internal Server Error"
+// @Router /products [get]
 func (h *ProductHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 
 	params := ParseQueryParams(r)
 
-	products, _, err := h.service.GetAll(r.Context(), params.GetLimit(), params.GetOffset())
+	products, total, err := h.service.GetAll(r.Context(), params.GetLimit(), params.GetOffset())
 
 	if err != nil {
+		h.logger.Info(err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`{"error": "failed to list products"}`))
 		return
 	}
 
-	RespondWithJSON(w, http.StatusOK, products)
+	RespondWithPagination(w, products, params.Page, params.PerPage, total)
 }
 
+// GetProduct godoc
+// @Summary Get a product by ID
+// @Description Get a product by its UUID
+// @Tags products
+// @Accept json
+// @Produce json
+// @Param id path string true "Product ID" format(uuid)
+// @Success 200 {object} api.APIResponse{data=api.ProductResponse} "Success"
+// @Failure 400 {object} api.APIResponse{errors=string} "Bad Request"
+// @Failure 404 {object} api.APIResponse{errors=string} "Not Found"
+// @Failure 500 {object} api.APIResponse{errors=string} "Internal Server Error"
+// @Router /products/{id} [get]
 func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	idParam := chi.URLParam(r, "id")
 	id, err := uuid.Parse(idParam)
@@ -89,6 +116,17 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 	RespondWithJSON(w, http.StatusOK, response)
 }
 
+// CreateProduct godoc
+// @Summary Create a new product
+// @Description Create a new product with the provided details
+// @Tags products
+// @Accept json
+// @Produce json
+// @Param product body api.ProductRequest true "Product details"
+// @Success 201 {object} api.APIResponse{data=api.ProductResponse} "Created"
+// @Failure 400 {object} api.APIResponse{errors=[]validator.ValidationError} "Validation Error"
+// @Failure 500 {object} api.APIResponse{errors=string} "Internal Server Error"
+// @Router /products [post]
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	d := json.NewDecoder(r.Body)
 

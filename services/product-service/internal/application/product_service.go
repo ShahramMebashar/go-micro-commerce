@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"microservice/pkg/logger"
 	"microservice/services/product-service/internal/domain"
 	"microservice/services/product-service/internal/interfaces"
 
@@ -10,14 +9,12 @@ import (
 )
 
 type ProductService struct {
-	repo   interfaces.ProductRepository
-	logger logger.Logger
+	repo interfaces.ProductRepository
 }
 
-func NewProductService(repo interfaces.ProductRepository, logger logger.Logger) *ProductService {
+func NewProductService(repo interfaces.ProductRepository) *ProductService {
 	return &ProductService{
-		repo:   repo,
-		logger: logger,
+		repo: repo,
 	}
 }
 

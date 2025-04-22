@@ -20,7 +20,45 @@ func NewProductRepository(db *pgxpool.Pool) *PostgresProductRepository {
 }
 
 func (r *PostgresProductRepository) GetAll(ctx context.Context, limit, offset int) ([]*domain.Product, int, error) {
-	return nil, 0, nil
+	rows, err := r.DB.Query(ctx, "SELECT * FROM products LIMIT $1 OFFSET $2", limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var products []*domain.Product
+	for rows.Next() {
+		var product domain.Product
+		err := rows.Scan(
+			&product.ID,
+			&product.Name,
+			&product.Description,
+			&product.Price,
+			&product.SKU,
+			&product.CategoryID,
+			&product.CreatedAt,
+			&product.UpdatedAt,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		products = append(products, &product)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	var total int
+	row := r.DB.QueryRow(ctx, "SELECT count(*) FROM  products")
+
+	err = row.Scan(&total)
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return products, total, nil
 }
 
 func (r *PostgresProductRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
