@@ -9,6 +9,7 @@ import (
 	"microservice/services/product-service/internal/infrastructure/api"
 	"microservice/services/product-service/internal/infrastructure/database"
 	"microservice/services/product-service/internal/infrastructure/persistence/postgres"
+	"microservice/services/product-service/internal/infrastructure/validator"
 	"net/http"
 	"os"
 	"os/signal"
@@ -38,7 +39,7 @@ func main() {
 
 	productRepo := postgres.NewProductRepository(dbpool)
 	productService := application.NewProductService(productRepo, lg)
-	productHandler := api.NewProductHandler(productService)
+	productHandler := api.NewProductHandler(productService, validator.New())
 
 	runSrever(cfg, productHandler, lg)
 }

@@ -36,9 +36,13 @@ func (v *Validator) Check(condition bool, field, message string) {
 	}
 }
 
-func (v *Validator) Required(field, value string) {
+func (v *Validator) Required(field, value string, customMsg ...string) {
 	if value == "" {
-		v.AddError(field, field+" is required")
+		msg := field + " is required"
+		if len(customMsg) > 0 {
+			msg = customMsg[0]
+		}
+		v.AddError(field, msg)
 	}
 }
 

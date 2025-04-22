@@ -14,12 +14,14 @@ import (
 )
 
 type ProductHandler struct {
-	service interfaces.Service
+	service   interfaces.Service
+	validator *validator.Validator
 }
 
-func NewProductHandler(service interfaces.Service) *ProductHandler {
+func NewProductHandler(service interfaces.Service, validator *validator.Validator) *ProductHandler {
 	return &ProductHandler{
-		service: service,
+		service:   service,
+		validator: validator,
 	}
 }
 
@@ -98,9 +100,9 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 
 	defer r.Body.Close()
 
-	v := validator.New()
+	v := h.validator
 	// check if category exists
-	categoryID := req.Validate(v)
+	categoryID := req.Validate(h.validator)
 
 	exists, err := h.service.CategoryExists(r.Context(), categoryID)
 	if err != nil {
