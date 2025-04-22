@@ -4,10 +4,10 @@ import (
 	"context"
 	"log"
 	"microservice/pkg/config"
+	"microservice/pkg/database"
 	"microservice/pkg/logger"
 	"microservice/services/product-service/internal/application"
 	"microservice/services/product-service/internal/infrastructure/api"
-	"microservice/services/product-service/internal/infrastructure/database"
 	"microservice/services/product-service/internal/infrastructure/persistence/postgres"
 	"microservice/services/product-service/internal/infrastructure/validator"
 	"net/http"
@@ -96,9 +96,10 @@ func runSrever(cfg *config.Config, productHandler *api.ProductHandler, logger lo
 	}
 
 	go func() {
+		logger.Info("Server started on http://localhost" + cfg.Server.GetAddr())
 		if err := server.ListenAndServe(); err != nil {
 			if err != http.ErrServerClosed {
-				log.Fatalf("Failed to start server: %v", err)
+				logger.Fatal("Failed to start server: %v", err)
 			}
 		}
 	}()
@@ -108,12 +109,12 @@ func runSrever(cfg *config.Config, productHandler *api.ProductHandler, logger lo
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	log.Println("Shutting down server...")
+	logger.Info("Shutting down server...")
 
 	err := server.Shutdown(ctx)
 	if err != nil {
-		log.Fatalf("Failed to shutdown server: %v", err)
+		logger.Fatal("Failed to shutdown server: %v", err)
 	}
 
-	log.Println("Server stopped")
+	logger.Info("Server stopped")
 }

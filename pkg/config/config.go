@@ -35,12 +35,13 @@ const (
 
 // DBConfig holds database connection configuration
 type DBConfig struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-	Database string
-	SSLMode  string
+	Host           string
+	Port           string
+	User           string
+	Password       string
+	Database       string
+	SSLMode        string
+	MigrationsPath string
 }
 
 func (c *DBConfig) GetDSN() string {
@@ -65,6 +66,10 @@ func (c *DBConfig) Validate() error {
 
 	if c.Database == "" {
 		return ErrDBDatabaseIsRequired
+	}
+
+	if c.MigrationsPath == "" {
+		return fmt.Errorf("migrations path is required")
 	}
 
 	// Validate SSLMode (should be one of: disable, require, verify-ca, verify-full)
@@ -153,7 +158,7 @@ func LoadConfig(envPath string) (*Config, error) {
 	}
 	envFile := filepath.Join(
 		cwd,
-		"services/product-service",
+		envPath,
 		".env",
 	)
 
@@ -171,12 +176,13 @@ func LoadConfig(envPath string) (*Config, error) {
 	// Continue with configuration regardless of whether .env was loaded
 	cfg := &Config{
 		DB: DBConfig{
-			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     getEnv("DB_PORT", "5432"),
-			User:     getEnv("DB_USER", "postgres"),
-			Password: getEnv("DB_PASSWORD", "postgres"),
-			Database: getEnv("DB_DATABASE", "products"),
-			SSLMode:  getEnv("DB_SSLMODE", "disable"),
+			Host:           getEnv("DB_HOST", "localhost"),
+			Port:           getEnv("DB_PORT", "5432"),
+			User:           getEnv("DB_USER", "postgres"),
+			Password:       getEnv("DB_PASSWORD", "postgres"),
+			Database:       getEnv("DB_DATABASE", "products"),
+			SSLMode:        getEnv("DB_SSLMODE", "disable"),
+			MigrationsPath: getEnv("MIGRATIONS_PATH", "migrations"),
 		},
 		Server: ServerConfig{
 			Port:             getEnv("SERVER_PORT", "8080"),
