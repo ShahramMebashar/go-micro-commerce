@@ -189,35 +189,35 @@ func LoadConfig(envPath string) (*Config, error) {
 	// Continue with configuration regardless of whether .env was loaded
 	cfg := &Config{
 		DB: DBConfig{
-			Host:           getEnv("DB_HOST", "localhost"),
-			Port:           getEnv("DB_PORT", "5432"),
-			User:           getEnv("DB_USER", "postgres"),
-			Password:       getEnv("DB_PASSWORD", "postgres"),
-			Database:       getEnv("DB_DATABASE", "products"),
-			SSLMode:        getEnv("DB_SSLMODE", "disable"),
-			MigrationsPath: getEnv("MIGRATIONS_PATH", "migrations"),
+			Host:           GetEnv("DB_HOST", "localhost"),
+			Port:           GetEnv("DB_PORT", "5432"),
+			User:           GetEnv("DB_USER", "postgres"),
+			Password:       GetEnv("DB_PASSWORD", "postgres"),
+			Database:       GetEnv("DB_DATABASE", "products"),
+			SSLMode:        GetEnv("DB_SSLMODE", "disable"),
+			MigrationsPath: GetEnv("MIGRATIONS_PATH", "migrations"),
 		},
 		Server: ServerConfig{
-			Port:             getEnv("SERVER_PORT", "8080"),
+			Port:             GetEnv("SERVER_PORT", "8080"),
 			Timeout:          getEnvAsInt("SERVER_TIMEOUT", 30),
-			LogLevel:         getEnv("LOG_LEVEL", "info"),
-			AllowedOrigins:   getEnv("ALLOWED_ORIGINS", "*"),
-			AllowedMethods:   getEnv("ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
-			AllowedHeaders:   getEnv("ALLOWED_HEADERS", "Content-Type, Authorization, X-Requested-With, X-Request-ID"),
+			LogLevel:         GetEnv("LOG_LEVEL", "info"),
+			AllowedOrigins:   GetEnv("ALLOWED_ORIGINS", "*"),
+			AllowedMethods:   GetEnv("ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
+			AllowedHeaders:   GetEnv("ALLOWED_HEADERS", "Content-Type, Authorization, X-Requested-With, X-Request-ID"),
 			AllowCredentials: getEnvAsBool("ALLOW_CREDENTIALS", false),
 			MaxAge:           getEnvAsInt("MAX_AGE", 86400),
 		},
-		Env: Environment(getEnv("ENV", "development")),
+		Env: Environment(GetEnv("ENV", "development")),
 		Telemetry: TelemetryConfig{
 			Enabled:        getEnvAsBool("TELEMETRY_ENABLED", true),
-			ServiceName:    getEnv("SERVICE_NAME", "product-service"),
-			ServiceVersion: getEnv("SERVICE_VERSION", "0.0.1"),
-			OTLPEndpoint:   getEnv("TELEMETRY_OTLP_ENDPOINT", "jaeger:4317"),
-			JaegerEndpoint: getEnv("TELEMETRY_JAEGER_ENDPOINT", "http://jaeger:14268/api/traces"),
+			ServiceName:    GetEnv("SERVICE_NAME", "product-service"),
+			ServiceVersion: GetEnv("SERVICE_VERSION", "0.0.1"),
+			OTLPEndpoint:   GetEnv("TELEMETRY_OTLP_ENDPOINT", "jaeger:4317"),
+			JaegerEndpoint: GetEnv("TELEMETRY_JAEGER_ENDPOINT", "http://jaeger:14268/api/traces"),
 			MetricsEnabled: getEnvAsBool("TELEMETRY_METRICS_ENABLED", true),
 			MetricsPort:    getEnvAsInt("TELEMETRY_METRICS_PORT", 9090),
-			PrometheusPath: getEnv("TELEMETRY_PROMETHEUS_PATH", "/metrics"),
-			LogLevel:       getEnv("LOG_LEVEL", "info"),
+			PrometheusPath: GetEnv("TELEMETRY_PROMETHEUS_PATH", "/metrics"),
+			LogLevel:       GetEnv("LOG_LEVEL", "info"),
 		},
 	}
 
@@ -229,7 +229,7 @@ func LoadConfig(envPath string) (*Config, error) {
 	return cfg, nil
 }
 
-func getEnv(key string, defaultValue string) string {
+func GetEnv(key string, defaultValue string) string {
 	value := os.Getenv(key)
 	if value == "" {
 		return defaultValue

@@ -26,7 +26,7 @@ COPY --from=builder /app/product-service .
 COPY --from=builder /app/services/product-service/internal/migrations ./services/product-service/internal/migrations
 
 # Expose the ports
-EXPOSE 8080
+EXPOSE 8081
 EXPOSE 9091
 
 # Run the application

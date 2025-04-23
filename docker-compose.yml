@@ -1,19 +1,43 @@
-
-# docker-compose.yml
+version: '3.8'
 
 networks:
   microservices-net:
     name: microservices-net
     driver: bridge
+    attachable: true
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
 
 services:
+  # Traefik
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    ports:
+      - "8888:8888"  # Web entrypoint
+      - "8090:8080"  # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+    networks:
+      - microservices-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+
+  # Product Service
   product-service:
     build:
       context: .
       dockerfile: services/product-service/Dockerfile
-    ports:
-      - "8081:8080"
-      - "9091:9091"
+    # Expose ports instead of publishing them to allow multiple replicas
+    expose:
+      - "8081"
+      - "9091"
     environment:
       - ENV=development
       - DB_HOST=postgres
@@ -23,7 +47,7 @@ services:
       - DB_DATABASE=products
       - DB_SSLMODE=disable
       - MIGRATIONS_PATH=services/product-service/internal/migrations
-      - SERVER_PORT=8080
+      - SERVER_PORT=8081
       - SERVER_TIMEOUT=30
       - LOG_LEVEL=info
       - SERVICE_NAME=product-service
@@ -34,13 +58,29 @@ services:
       - TELEMETRY_METRICS_ENABLED=true
       - TELEMETRY_METRICS_PORT=9091
       - TELEMETRY_PROMETHEUS_PATH=/metrics
+    scale: 3  
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - microservices-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.product.rule=PathPrefix(`/api/products`)"
+      - "traefik.http.services.product.loadbalancer.server.port=8081"
+      - "traefik.http.routers.product.entrypoints=web"
+      - "traefik.docker.network=microservices-net"
+      - "traefik.http.services.product.loadbalancer.sticky=true"
+      - "traefik.http.services.product.loadbalancer.sticky.cookie.name=product_sticky"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
+  # Database
   postgres:
-    image: postgres:latest
+    image: postgres:17-alpine
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -51,6 +91,77 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - microservices-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Telemetry services
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    ports:
+      - "16686:16686"  # UI
+      - "14268:14268"  # HTTP collector
+      - "4317:4317"    # OTLP gRPC
+      - "5778:5778"    # Sampling server
+      - "6831:6831/udp"  # Agent - Thrift compact protocol
+      - "6832:6832/udp"  # Agent - Thrift binary protocol
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - microservices-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jaeger.rule=Host(`jaeger.localhost`)"
+      - "traefik.http.routers.jaeger.entrypoints=web"
+      - "traefik.http.services.jaeger.loadbalancer.server.port=16686"
+      - "traefik.docker.network=microservices-net"
+    # Disable health check for now
+    # healthcheck:
+    #   test: ["CMD", "wget", "-q", "--spider", "http://localhost:14269"]
+    #   interval: 30s
+    #   timeout: 5s
+    #   retries: 3
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - microservices-net
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--web.enable-lifecycle'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - microservices-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
 
 volumes:
   postgres_data:
+  grafana_data:

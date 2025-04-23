@@ -8,6 +8,7 @@ import (
 	"microservice/services/product-service/internal/infrastructure/validator"
 	"microservice/services/product-service/internal/interfaces"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -37,6 +38,7 @@ func (h *ProductHandler) RegisterRoutes(r chi.Router) {
 		r.Delete("/{id}", h.DeleteProduct)
 		r.Get("/category/{categoryID}", h.GetProductsByCategory)
 		r.Get("/search", h.SearchProducts)
+		r.Get("/health", h.HealthCheck)
 	})
 }
 
@@ -186,4 +188,27 @@ func (h *ProductHandler) GetProductsByCategory(w http.ResponseWriter, r *http.Re
 
 func (h *ProductHandler) SearchProducts(w http.ResponseWriter, r *http.Request) {
 
+}
+
+// HealthCheck godoc
+// @Summary Health check endpoint
+// @Description Returns the health status of the product service
+// @Tags health
+// @Accept json
+// @Produce json
+// @Success 200 {object} api.APIResponse{data=map[string]string} "Success"
+// @Router /products/health [get]
+func (h *ProductHandler) HealthCheck(w http.ResponseWriter, r *http.Request) {
+	// Get hostname to identify which container is responding
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+
+	RespondWithJSON(w, http.StatusOK, map[string]string{
+		"status":   "ok",
+		"service":  "product-service",
+		"hostname": hostname,
+		"endpoint": "/api/products/health",
+	})
 }

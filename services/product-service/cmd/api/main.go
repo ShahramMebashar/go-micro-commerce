@@ -107,9 +107,15 @@ func runServer(cfg *config.Config, productHandler *api.ProductHandler, logger lo
 	})
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		// Get hostname to identify which container is responding
+		hostname, err := os.Hostname()
+		if err != nil {
+			hostname = "unknown"
+		}
 		api.RespondWithJSON(w, http.StatusOK, map[string]string{
-			"status":  "ok",
-			"service": "product-service",
+			"status":   "ok",
+			"service":  "product-service",
+			"hostname": hostname,
 		})
 	})
 	server := &http.Server{
