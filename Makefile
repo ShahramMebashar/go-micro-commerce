@@ -6,7 +6,7 @@ GO = go
 GOFLAGS = -v
 GOCMD = $(GO) $(GOFLAGS)
 PRODUCT_SERVICE_DIR = services/product-service
-POSTGRES_CONTAINER = postgres
+POSTGRES_CONTAINER = 9f348be31ab86d62310b30aa893da6a52c22419c7d79c9035570027f497ee506
 DB_NAME = products
 DB_USER = postgres
 

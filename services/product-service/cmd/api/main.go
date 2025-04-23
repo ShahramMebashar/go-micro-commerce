@@ -6,6 +6,7 @@ import (
 	"microservice/pkg/config"
 	"microservice/pkg/database"
 	"microservice/pkg/logger"
+	"microservice/pkg/telemetry"
 	"microservice/services/product-service/internal/application"
 	"microservice/services/product-service/internal/infrastructure/api"
 	"microservice/services/product-service/internal/infrastructure/persistence/postgres"
@@ -39,30 +40,50 @@ import (
 // @BasePath /api
 // @schemes http
 func main() {
-	// Load configuration with multiple possible .env files
-	cfg, err := config.LoadConfig("services/product-service")
-
+	// Load configuration
+	appCfg, err := config.LoadConfig("services/product-service")
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	dbpool, err := database.Initialize(cfg)
+	// Initialize telemetry first
+	telemetryCfg := telemetry.Config{
+		ServiceName:    appCfg.Telemetry.ServiceName,
+		ServiceVersion: appCfg.Telemetry.ServiceVersion,
+		Environment:    string(appCfg.Env),
+		TracingEnabled: appCfg.Telemetry.Enabled,
+		OTLPEndpoint:   appCfg.Telemetry.OTLPEndpoint,
+		JaegerEndpoint: appCfg.Telemetry.JaegerEndpoint,
+		MetricsEnabled: appCfg.Telemetry.MetricsEnabled,
+		MetricsPort:    appCfg.Telemetry.MetricsPort,
+		PrometheusPath: appCfg.Telemetry.PrometheusPath,
+		LogLevel:       appCfg.Server.LogLevel,
+	}
 
+	telShutdown, err := telemetry.Setup(context.Background(), telemetryCfg)
+	if err != nil {
+		log.Fatalf("Failed to setup telemetry: %v", err)
+	}
+	defer telShutdown(context.Background())
+
+	// Initialize database
+	dbpool, err := database.Initialize(appCfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-
 	defer dbpool.Close()
-	lg := logger.GetDefaultLogger()
 
-	productRepo := postgres.NewProductRepository(dbpool)
-	productService := application.NewProductService(productRepo)
+	// Now use the tracer after it's been initialized
+	tr := telemetry.Tracer()
+	lg := logger.GetDefaultLogger()
+	productRepo := postgres.NewProductRepository(dbpool, tr)
+	productService := application.NewProductService(productRepo, tr)
 	productHandler := api.NewProductHandler(productService, validator.New(), lg)
 
-	runSrever(cfg, productHandler, lg)
+	runServer(appCfg, productHandler, lg)
 }
 
-func runSrever(cfg *config.Config, productHandler *api.ProductHandler, logger logger.Logger) {
+func runServer(cfg *config.Config, productHandler *api.ProductHandler, logger logger.Logger) {
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
 
@@ -70,6 +91,7 @@ func runSrever(cfg *config.Config, productHandler *api.ProductHandler, logger lo
 	r.Use(middleware.Recoverer)
 	r.Use(api.RequestID)
 	r.Use(api.Logger(logger))
+	r.Use(telemetry.Middleware)
 	r.Use(middleware.Timeout(time.Duration(cfg.Server.Timeout) * time.Second))
 	r.Use(middleware.CleanPath)
 	r.Use(middleware.Compress(5))

@@ -120,11 +120,24 @@ func (s ServerConfig) Validate() error {
 	return nil
 }
 
+type TelemetryConfig struct {
+	Enabled        bool
+	ServiceName    string
+	ServiceVersion string
+	OTLPEndpoint   string
+	JaegerEndpoint string
+	MetricsEnabled bool
+	MetricsPort    int
+	PrometheusPath string
+	LogLevel       string
+}
+
 // Config holds all application configuration
 type Config struct {
-	Env    Environment
-	DB     DBConfig
-	Server ServerConfig
+	Env       Environment
+	DB        DBConfig
+	Server    ServerConfig
+	Telemetry TelemetryConfig
 }
 
 // Validate checks if the configuration is valid
@@ -195,6 +208,17 @@ func LoadConfig(envPath string) (*Config, error) {
 			MaxAge:           getEnvAsInt("MAX_AGE", 86400),
 		},
 		Env: Environment(getEnv("ENV", "development")),
+		Telemetry: TelemetryConfig{
+			Enabled:        getEnvAsBool("TELEMETRY_ENABLED", true),
+			ServiceName:    getEnv("SERVICE_NAME", "product-service"),
+			ServiceVersion: getEnv("SERVICE_VERSION", "0.0.1"),
+			OTLPEndpoint:   getEnv("TELEMETRY_OTLP_ENDPOINT", "jaeger:4317"),
+			JaegerEndpoint: getEnv("TELEMETRY_JAEGER_ENDPOINT", "http://jaeger:14268/api/traces"),
+			MetricsEnabled: getEnvAsBool("TELEMETRY_METRICS_ENABLED", true),
+			MetricsPort:    getEnvAsInt("TELEMETRY_METRICS_PORT", 9090),
+			PrometheusPath: getEnv("TELEMETRY_PROMETHEUS_PATH", "/metrics"),
+			LogLevel:       getEnv("LOG_LEVEL", "info"),
+		},
 	}
 
 	// Validate the configuration
